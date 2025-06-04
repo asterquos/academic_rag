@@ -1,0 +1,164 @@
+"""
+src/rag/generator.py
+使用LLM生成答案
+"""
+
+import os
+import logging
+from typing import List, Dict, Any, Optional
+import google.generativeai as genai
+
+logger = logging.getLogger(__name__)
+
+
+class AnswerGenerator:
+    """答案生成器"""
+
+    def __init__(self, api_key: str = None, model_name: str = "gemini-2.0-flash"):
+        """
+        初始化生成器
+
+        Args:
+            api_key: API密钥
+            model_name: 模型名称
+        """
+        self.api_key = api_key or os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+        self.model_name = model_name
+        self.llm = None
+
+        if self.api_key:
+            self._init_llm()
+        else:
+            logger.warning("未配置API密钥，生成功能不可用")
+
+    def _init_llm(self):
+        """初始化LLM"""
+        try:
+            genai.configure(api_key=self.api_key)
+            self.llm = genai.GenerativeModel(self.model_name)
+            logger.info(f"LLM初始化成功: {self.model_name}")
+        except Exception as e:
+            logger.error(f"LLM初始化失败: {e}")
+            self.llm = None
+
+    def generate(
+            self,
+            query: str,
+            context: List[Dict[str, Any]],
+            system_prompt: Optional[str] = None
+    ) -> str:
+        """
+        生成答案
+
+        Args:
+            query: 用户查询
+            context: 检索到的文档上下文
+            system_prompt: 系统提示词（可选）
+
+        Returns:
+            生成的答案
+        """
+        if not self.llm:
+            return "生成功能不可用（请设置GOOGLE_API_KEY或GEMINI_API_KEY环境变量）"
+
+        # 使用默认提示词或自定义提示词
+        if system_prompt is None:
+            system_prompt = self._get_default_prompt()
+
+        # 格式化上下文
+        context_text = self._format_context(context)
+
+        # 构建完整提示
+        full_prompt = f"""{system_prompt}
+
+相关文档：
+{context_text}
+
+用户问题：{query}
+
+请基于以上文档回答："""
+
+        try:
+            response = self.llm.generate_content(full_prompt)
+            return response.text
+
+        except Exception as e:
+            logger.error(f"生成答案失败: {e}")
+            return f"生成失败: {str(e)}"
+
+    def generate_with_citations(
+            self,
+            query: str,
+            context: List[Dict[str, Any]]
+    ) -> str:
+        """
+        生成带引用的答案
+
+        Args:
+            query: 用户查询
+            context: 检索到的文档上下文
+
+        Returns:
+            带引用的答案
+        """
+        system_prompt = """你是一个艺术设计领域的专家助手。请基于提供的文档信息，给出准确的回答。
+
+重要规则：
+1. 只使用文档中明确提到的信息
+2. 如果文档中没有相关信息，明确说明"根据提供的文档，没有找到相关信息"
+3. 在引用具体信息时，使用以下格式：
+   [年份, 作者, 《文章标题》: "引用的具体内容"]
+4. 保持专业性和准确性
+5. 如果有多个相关文献，按时间顺序组织答案"""
+
+        return self.generate(query, context, system_prompt)
+
+    def _get_default_prompt(self) -> str:
+        """获取默认系统提示词"""
+        return """你是一个艺术设计领域的专家助手。请基于提供的文档信息，给出准确的回答。
+
+重要规则：
+1. 只使用文档中明确提到的信息
+2. 如果文档中没有相关信息，明确说明"根据提供的文档，没有找到相关信息"
+3. 在引用具体信息时，标注来源文档编号 [文档X]
+4. 保持专业性和准确性"""
+
+    def _format_context(self, context: List[Dict[str, Any]]) -> str:
+        """
+        格式化文档上下文
+
+        Args:
+            context: 文档列表
+
+        Returns:
+            格式化的文本
+        """
+        formatted_docs = []
+
+        for i, doc in enumerate(context, 1):
+            metadata = doc.get('metadata', {})
+
+            # 提取信息
+            year = metadata.get('年份', '未知年份')
+            author = metadata.get('作者名称', '未知作者')
+            title = metadata.get('文章名称+副标题', '无标题')
+            text = doc.get('text', '')[:1000]  # 限制长度
+
+            # 格式化单个文档
+            doc_text = f"""文档 {i}:
+[{year}] {author} 《{title}》
+内容：{text}...
+"""
+            formatted_docs.append(doc_text)
+
+        return "\n".join(formatted_docs)
+
+    def set_api_key(self, api_key: str):
+        """设置API密钥"""
+        self.api_key = api_key
+        if api_key:
+            self._init_llm()
+
+    def is_available(self) -> bool:
+        """检查生成功能是否可用"""
+        return self.llm is not None

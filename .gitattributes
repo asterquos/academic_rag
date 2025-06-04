@@ -1,0 +1,22 @@
+
+# 自动处理换行符
+* text=auto
+
+# 明确指定文件类型
+*.py text
+*.yaml text
+*.yml text
+*.json text
+*.md text
+*.txt text
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.xls binary
+EOF

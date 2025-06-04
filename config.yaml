@@ -1,0 +1,200 @@
+# config.yaml
+# RAG系统配置文件
+
+# 数据路径
+data:
+  raw_path: "data/raw/applied_arts.xlsx"
+  processed_path: "data/processed/"
+  chroma_path: "data/chroma/"
+
+# 预处理配置
+preprocessing:
+  # Excel配置
+  excel:
+    encoding: "utf-8"
+    supported_encodings: ["utf-8", "gbk", "gb2312", "cp1252"]
+    required_columns:
+      - "年份"
+      - "刊号"
+      - "分类"
+      - "是否入选"
+      - "文章名称+副标题"
+      - "作者名称"
+      - "全文"
+    optional_columns:
+      - "选图情况"
+      - "文章特点"
+      - "作者介绍"
+
+  # 文本处理配置 - 优化的chunk策略
+  text:
+    min_text_length: 100        # 最小文本长度
+    max_text_length: 100000     # 最大文本长度
+
+    # Chunk策略配置
+    chunking_strategies:
+      # 策略1：完整文章作为chunk（推荐用于结构化数据）
+      full_article:
+        enabled: true
+        max_length: 8000        # 单篇文章最大长度
+
+      # 策略2：智能段落分割
+      paragraph_based:
+        enabled: true
+        min_paragraph_length: 200   # 最小段落长度
+        max_paragraph_length: 1500  # 最大段落长度
+        paragraph_overlap: 100      # 段落间重叠
+
+      # 策略3：固定大小分割（备用）
+      fixed_size:
+        enabled: false
+        chunk_size: 800         # 增加到800字符
+        chunk_overlap: 100      # 重叠100字符
+
+    # 概念相关配置
+    concept_min_frequency: 2
+    art_terms:
+      - "包豪斯"
+      - "装饰艺术"
+      - "现代主义"
+      - "后现代主义"
+      - "极简主义"
+
+  # 验证配置
+  validation:
+    enable_validation: true
+    year_range: [1900, 2030]
+
+  # 管道配置
+  pipeline:
+    filter_selected: false
+    save_intermediate: true
+    output_dir: "data/processed"
+
+# 嵌入配置 - 使用更强大的模型
+embedding:
+  # 模型选择（针对5070Ti优化）
+  models:
+    # 选项1：BGE Large（推荐）
+    bge_large:
+      model_name: "BAAI/bge-large-zh-v1.5"
+      dimension: 1024
+      max_seq_length: 512
+      device: "cuda"
+
+    # 选项2：Text2Vec BGE Large
+    text2vec_bge:
+      model_name: "shibing624/text2vec-bge-large-chinese"
+      dimension: 1024
+      max_seq_length: 512
+      device: "cuda"
+
+    # 选项3：M3E Large（备选）
+    m3e_large:
+      model_name: "moka-ai/m3e-large"
+      dimension: 1024
+      max_seq_length: 512
+      device: "cuda"
+
+  # 当前使用的模型
+  current_model: "bge_large"
+
+  # 批处理配置（5070Ti可以处理更大批次）
+  batch_size: 64
+  normalize: true
+
+  # GPU内存优化
+  mixed_precision: true   # 使用混合精度
+  gradient_checkpointing: false
+
+
+# 向量存储配置
+vector_store:
+  collection_name: "art_design_docs_v2"
+  persist_directory: "data/chroma_v2"
+
+  # 索引配置
+  index_settings:
+    # HNSW参数（针对高维向量优化）
+    ef_construction: 200    # 构建时的搜索宽度
+    ef_search: 100         # 搜索时的宽度
+    M: 48                  # 每个节点的连接数
+
+  # 元数据索引
+  metadata_indexes:
+    - "年份"
+    - "作者名称"
+    - "分类"
+
+# 生成模型配置
+generation:
+  model: "gemini-2.0-flash"
+  temperature: 0.7
+  max_tokens: 2048
+  # API密钥优先从环境变量获取: GOOGLE_API_KEY 或 GEMINI_API_KEY
+
+# 检索配置 - 优化检索策略
+retrieval:
+  # 检索策略
+  strategies:
+    # 两阶段检索
+    two_stage:
+      enabled: true
+      first_stage_top_k: 50   # 第一阶段召回
+      rerank_top_k: 10       # 重排序后返回
+
+    # 混合检索权重
+    hybrid_weights:
+      bm25_weight: 0.3
+      vector_weight: 0.7
+
+  # 基础配置
+  default_top_k: 10
+  max_top_k: 50
+  score_threshold: 0.6
+
+  # 上下文窗口
+  context_window:
+    before: 200    # 匹配点前的字符数
+    after: 200     # 匹配点后的字符数
+
+# 分析配置
+analysis:
+  min_concept_frequency: 2
+  time_granularity: "year"
+  author_min_publications: 2
+
+  # 语义相似度阈值
+  similarity_thresholds:
+    concept_match: 0.85    # 概念匹配阈值
+    author_match: 0.90     # 作者匹配阈值
+    duplicate: 0.95        # 重复检测阈值
+
+# 性能优化配置
+performance:
+  # 缓存配置
+  cache:
+    enabled: true
+    max_size: 1000
+    ttl: 3600  # 秒
+
+  # 并行处理
+  parallel:
+    num_workers: 4
+    chunk_processor_workers: 2
+
+  # GPU配置（5070Ti优化）
+  gpu:
+    memory_fraction: 0.8   # 使用80%的GPU内存
+    allow_growth: true     # 动态增长
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 系统监控
+monitoring:
+  enable_metrics: true
+  metrics_port: 8000
+  track_gpu_usage: true
