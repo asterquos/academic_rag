@@ -36,3 +36,5 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+# 个人笔记
+tasks/
