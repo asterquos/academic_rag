@@ -1,40 +1,72 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.pyc
 .env
 venv/
+env/
+*.egg-info/
+dist/
+build/
+
 # IDE
 .idea/
 .vscode/
 *.swp
-# 数据和模型文件
-data/
-models/
-*.db
-*.sqlite
-*.parquet
-*.xlsx
-*.csv
-# 向量数据库
-chroma/
-data/chroma*/
-*.bin
-*.pt
-*.pth
-*.safetensors
-# 日志
-logs/
-*.log
+*.swo
+
 # 系统文件
 .DS_Store
 Thumbs.db
+~$*
+
+# 日志
+logs/
+*.log
+
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
+
 # 临时文件
 tmp/
 temp/
 *.tmp
-# 个人笔记
-tasks/
+
+# 测试和调试文件
+debug_*.py
+test_*.py
+
+# 模型缓存（太大，用户需要自己下载）
+models/
+data/chroma*/models/
+data/*/models--*/
+
+# 向量数据库文件（用户需要自己构建）
+data/chroma/
+data/chroma_clean/
+data/chroma_v2/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.sqlite3
+*.sqlite3.backup
+
+# 处理后的数据（用户需要自己生成）
+data/processed/
+*.parquet
+
+# BM25缓存
+*.pkl
+
+# 输出文件
+output/
+
+# 修复脚本（临时使用）
+fix_chromadb*.py
+
+# 例外：保留原始数据集
+!data/
+!data/raw/
+!data/raw/applied_arts.xlsx
