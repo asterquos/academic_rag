@@ -362,6 +362,50 @@ class TextProcessor:
 
         return text.strip()
 
+    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        处理DataFrame中的文本数据，添加清洗后的文本列
+        
+        Args:
+            df: 输入的DataFrame
+            
+        Returns:
+            处理后的DataFrame，包含清洗后的文本列
+        """
+        logger.info("开始处理DataFrame中的文本数据")
+        
+        # 处理全文
+        if '全文' in df.columns:
+            df['全文_清洗'] = df['全文'].apply(self.clean_text)
+            df['全文长度'] = df['全文_清洗'].str.len()
+            
+        # 处理标题
+        if '文章名称+副标题' in df.columns:
+            df['标题_清洗'] = df['文章名称+副标题'].apply(self.clean_text)
+            
+        # 提取句子列表
+        if '全文_清洗' in df.columns:
+            df['句子列表'] = df['全文_清洗'].apply(self._extract_sentences)
+            
+        # 提取概念词（简单实现）
+        # 使用列表而不是字典，避免Parquet保存时的问题
+        df['概念词'] = df.apply(lambda x: [], axis=1)  # 占位实现
+        
+        # 提取实体（简单实现）
+        df['实体'] = df.apply(lambda x: [], axis=1)  # 占位实现
+        
+        logger.info(f"文本处理完成，新增列: {[col for col in df.columns if col.endswith('_清洗') or col in ['句子列表', '概念词', '实体']]}")
+        
+        return df
+    
+    def _extract_sentences(self, text: str) -> List[str]:
+        """提取句子列表"""
+        if pd.isna(text) or not text:
+            return []
+        
+        sentences = self.sentence_pattern.split(text)
+        return [s.strip() for s in sentences if s.strip()]
+
     def process_dataframe_chunks(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         处理DataFrame，为每个文档创建chunks
@@ -410,6 +454,54 @@ class TextProcessor:
             logger.info(f"  {strategy}: {count} chunks")
 
         return chunks_df
+
+    def create_text_chunks(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[Dict]:
+        """
+        将文本分割成固定大小的块
+        
+        Args:
+            text: 输入文本
+            chunk_size: 块大小
+            overlap: 重叠大小
+            
+        Returns:
+            List[Dict]: 包含chunk信息的字典列表
+        """
+        if pd.isna(text) or not text:
+            return []
+            
+        text = self.clean_text(text)
+        chunks = []
+        
+        start = 0
+        chunk_id = 0
+        
+        while start < len(text):
+            end = min(start + chunk_size, len(text))
+            
+            # 尝试在句子边界结束
+            if end < len(text):
+                # 查找最近的句号
+                chunk_text = text[start:end]
+                last_period = chunk_text.rfind('。')
+                if last_period > chunk_size * 0.8:  # 如果句号在后80%
+                    end = start + last_period + 1
+                    
+            chunk_text = text[start:end]
+            
+            chunks.append({
+                'chunk_id': chunk_id,
+                'text': chunk_text,
+                'start': start,
+                'end': end,
+                'length': len(chunk_text)
+            })
+            
+            # 下一个块的起始位置，考虑重叠
+            start = end - overlap if end < len(text) else end
+            chunk_id += 1
+            
+        return chunks
 
 
 # 测试

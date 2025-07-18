@@ -27,6 +27,7 @@ logs/
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
+tasks/
 
 # 临时文件
 tmp/

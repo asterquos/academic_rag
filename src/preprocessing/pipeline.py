@@ -259,8 +259,8 @@ class PreprocessingPipeline:
                     'category': row.get('分类', ''),
                     'journal_issue': row.get('刊号', ''),
                     'is_selected': row.get('是否入选', False),
-                    'concepts': row.get('概念词', {}),
-                    'entities': row.get('实体', {})
+                    'concepts': row.get('概念词', []),
+                    'entities': row.get('实体', [])
                 }
             }
             vector_data['documents'].append(doc_data)
@@ -410,13 +410,19 @@ if __name__ == "__main__":
 
     print("\n处理完成！")
     print(f"处理状态: {results['status']}")
-    print(f"处理时间: {results['duration']}")
-
+    
+    # 检查是否有duration字段
+    if 'duration' in results:
+        print(f"处理时间: {results['duration']}")
+    
     if results['status'] == 'completed':
         print("\n各步骤结果:")
         for step, info in results['steps'].items():
             print(f"  {step}: {info['status']}")
 
-        print("\n输出文件:")
-        for file in results['steps']['saving']['output_files']:
-            print(f"  - {file}")
+        if 'saving' in results['steps'] and 'output_files' in results['steps']['saving']:
+            print("\n输出文件:")
+            for file in results['steps']['saving']['output_files']:
+                print(f"  - {file}")
+    elif results['status'] == 'failed' and 'error' in results:
+        print(f"错误信息: {results['error']}")
